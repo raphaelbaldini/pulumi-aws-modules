@@ -20,13 +20,22 @@ Project-specific composition should stay in consuming repos (for example `*_reso
 
 ## Install
 
-Using a git tag (example):
+Using GitHub Packages (recommended for private reuse):
+
+```bash
+pip install \
+  --index-url https://<github-user>:<token>@pip.pkg.github.com/<your-org>/simple \
+  --extra-index-url https://pypi.org/simple \
+  pulumi-aws-modules==0.1.0
+```
+
+Using a git tag (alternative):
 
 ```bash
 pip install "pulumi-aws-modules @ git+https://github.com/<your-org>/pulumi-aws-modules.git@v0.1.0"
 ```
 
-For local development:
+For local development only:
 
 ```bash
 pip install "pulumi-aws-modules @ file:///Users/rbaldini/Projects/personal/aws/pulumi/pulumi-aws-modules"
@@ -35,7 +44,7 @@ pip install "pulumi-aws-modules @ file:///Users/rbaldini/Projects/personal/aws/p
 ## Release and Publish
 
 - Push a tag like `v0.1.0` to trigger `.github/workflows/publish.yml`.
-- The workflow builds `sdist` and `wheel`, uploads them to a GitHub Release, and optionally publishes to PyPI when `PYPI_API_TOKEN` is configured.
+- The workflow builds `sdist` and `wheel`, uploads them to a GitHub Release, publishes to GitHub Packages, and optionally publishes to PyPI when `PYPI_API_TOKEN` is configured.
 
 ## Versioning
 
