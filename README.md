@@ -1,4 +1,4 @@
-# onii-pulumi-modules
+# pulumi-aws-modules
 
 Reusable Pulumi AWS primitive modules for Onii infrastructure projects.
 
@@ -23,8 +23,19 @@ Project-specific composition should stay in consuming repos (for example `*_reso
 Using a git tag (example):
 
 ```bash
-pip install "onii-pulumi-modules @ git+file:///Users/rbaldini/Projects/personal/aws/pulumi/onii-pulumi-modules@v0.1.0"
+pip install "pulumi-aws-modules @ git+https://github.com/<your-org>/pulumi-aws-modules.git@v0.1.0"
 ```
+
+For local development:
+
+```bash
+pip install "pulumi-aws-modules @ file:///Users/rbaldini/Projects/personal/aws/pulumi/pulumi-aws-modules"
+```
+
+## Release and Publish
+
+- Push a tag like `v0.1.0` to trigger `.github/workflows/publish.yml`.
+- The workflow builds `sdist` and `wheel`, uploads them to a GitHub Release, and optionally publishes to PyPI when `PYPI_API_TOKEN` is configured.
 
 ## Versioning
 
