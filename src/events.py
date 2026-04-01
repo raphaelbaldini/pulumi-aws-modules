@@ -4,9 +4,9 @@ from dataclasses import dataclass
 import pulumi
 import pulumi_aws as aws
 
-from onii_pulumi_modules.database import DatabaseResources
-from onii_pulumi_modules.messaging import MessagingResources
-from onii_pulumi_modules.storage import StorageResources
+from database import DatabaseResources
+from messaging import MessagingResources
+from storage import StorageResources
 
 
 @dataclass(frozen=True)
