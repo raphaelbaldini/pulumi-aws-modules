@@ -20,19 +20,10 @@ Project-specific composition should stay in consuming repos (for example `*_reso
 
 ## Install
 
-Using GitHub Packages (recommended for private reuse):
+Pin to a specific tag in `requirements.txt`:
 
-```bash
-pip install \
-  --index-url https://<github-user>:<token>@pip.pkg.github.com/<your-org>/simple \
-  --extra-index-url https://pypi.org/simple \
-  pulumi-aws-modules==0.1.0
 ```
-
-Using a git tag (alternative):
-
-```bash
-pip install "pulumi-aws-modules @ git+https://github.com/<your-org>/pulumi-aws-modules.git@v0.1.0"
+pulumi-aws-modules @ git+https://github.com/raphaelbaldini/pulumi-aws-modules.git@v0.1.0
 ```
 
 For local development only:
@@ -41,10 +32,25 @@ For local development only:
 pip install "pulumi-aws-modules @ file:///Users/rbaldini/Projects/personal/aws/pulumi/pulumi-aws-modules"
 ```
 
-## Release and Publish
+## CI Authentication
 
-- Push a tag like `v0.1.0` to trigger `.github/workflows/publish.yml`.
-- The workflow builds `sdist` and `wheel`, uploads them to a GitHub Release, publishes to GitHub Packages, and optionally publishes to PyPI when `PYPI_API_TOKEN` is configured.
+Since this repo is private, CI pipelines that install it need a GitHub PAT with `repo` scope. Configure git before `pip install`:
+
+```yaml
+- name: Configure git for private repos
+  run: git config --global url."https://${{ secrets.MODULES_PAT }}@github.com/".insteadOf "https://github.com/"
+```
+
+## Release
+
+Tag a new version and push:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Consumers update their `requirements.txt` tag reference to match.
 
 ## Versioning
 
