@@ -15,6 +15,7 @@ This package contains primitive resource builders and typed resource containers:
 - `scaling`
 - `events`
 - `notifications`
+- `ssm` (Parameter Store: `create_string_parameter`, `create_secure_string_parameter`, `get_parameter_value`)
 
 Project-specific composition should stay in consuming repos (for example `*_resources.py` files and stack-specific config wiring).
 
