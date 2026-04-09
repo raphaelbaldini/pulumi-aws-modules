@@ -3,9 +3,9 @@ from dataclasses import dataclass
 import pulumi
 import pulumi_aws as aws
 
-from database import DatabaseResources
-from messaging import MessagingResources
-from storage import StorageResources
+from .database import DatabaseResources
+from .messaging import MessagingResources
+from .storage import StorageResources
 
 
 @dataclass(frozen=True)

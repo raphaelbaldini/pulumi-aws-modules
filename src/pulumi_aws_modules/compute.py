@@ -5,7 +5,7 @@ from typing import Optional
 import pulumi
 import pulumi_aws as aws
 
-from network import NetworkResources
+from .network import NetworkResources
 
 
 @dataclass(frozen=True)
