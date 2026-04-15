@@ -10,7 +10,7 @@ Public areas:
 
 - `storage` — S3 (`create_secure_bucket`, optional `exact_bucket_name` for fixed names / import workflows)
 - `messaging` — SQS
-- `database` — DynamoDB and Aurora PostgreSQL (including `create_aurora_postgresql_cluster` from `database.rds`, re-exported on `database`)
+- `database` — DynamoDB (`create_on_demand_table`: on-demand by default; optional provisioned + GSIs) and Aurora PostgreSQL (`create_aurora_postgresql_cluster`, also on `database`)
 - `network` — VPC / security groups
 - `security.iam` — EC2 worker role + instance profile
 - `security.ssm` — Parameter Store helpers
