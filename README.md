@@ -4,18 +4,36 @@ Reusable Pulumi AWS primitive modules for Onii infrastructure projects.
 
 ## Scope
 
-This package contains primitive resource builders and typed resource containers:
+This package contains primitive resource builders and typed resource containers. **Stable import paths** for consumers remain `pulumi_aws_modules.<area>` (for example `pulumi_aws_modules.storage`, `pulumi_aws_modules.database`). Implementation is organized under domain subpackages; deep imports such as `pulumi_aws_modules.storage.s3` are optional and not part of the primary API unless you choose to depend on them.
 
-- `storage`
-- `messaging`
-- `database`
-- `network`
-- `iam`
-- `compute`
-- `scaling`
-- `events`
-- `notifications`
-- `ssm` (Parameter Store: `create_string_parameter`, `create_secure_string_parameter`, `get_parameter_value`)
+Public areas:
+
+- `storage` — S3 (`create_secure_bucket`, optional `exact_bucket_name` for fixed names / import workflows)
+- `messaging` — SQS
+- `database` — DynamoDB and Aurora PostgreSQL (including `create_aurora_postgresql_cluster` from `database.rds`, re-exported on `database`)
+- `network` — VPC / security groups
+- `security.iam` — EC2 worker role + instance profile
+- `security.ssm` — Parameter Store helpers
+- `compute` — EC2 / Auto Scaling
+- `compute.scaling` — queue-depth Auto Scaling policies
+- `events` — S3 → SQS / Lambda wiring (`create_events` + config dataclasses; **no** stack-specific names or code paths in the module)
+- `notifications` — SES (`identity_resource_name` is caller-defined)
+- `ssm` — Parameter Store (shim over `security.ssm`)
+- `ci` — GitHub OIDC, CodeBuild / Packer helpers
+
+### Layout (under `src/pulumi_aws_modules/`)
+
+| Subpackage        | Implementation modules                          |
+|-------------------|-------------------------------------------------|
+| `database/`       | `dynamodb.py`, `rds.py`                         |
+| `storage/`        | `s3.py`                                         |
+| `messaging/`      | `sqs.py`                                        |
+| `network/`        | `vpc.py`                                        |
+| `notifications/`  | `ses.py`                                        |
+| `events/`         | `s3_metadata.py`                                |
+| `security/`       | `iam.py`, `ssm.py`                              |
+| `compute/`        | `ec2.py`, `scaling.py`                          |
+| `ci/`             | `github.py`                                     |
 
 Project-specific composition should stay in consuming repos (for example `*_resources.py` files and stack-specific config wiring).
 
@@ -30,7 +48,7 @@ pulumi-aws-modules @ git+https://github.com/raphaelbaldini/pulumi-aws-modules.gi
 For local development only:
 
 ```bash
-pip install "pulumi-aws-modules @ file:///Users/rbaldini/Projects/personal/aws/pulumi/pulumi-aws-modules"
+pip install -e /path/to/pulumi-aws-modules
 ```
 
 ## CI Authentication

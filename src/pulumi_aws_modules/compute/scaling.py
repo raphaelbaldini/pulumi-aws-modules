@@ -14,11 +14,7 @@ def create_queue_depth_scaling(
     bounded_max_size = max(1, max_size)
     bounded_step = max(1, queue_depth_step)
     bounded_scale_out_start = max(1, scale_out_start_queue_depth)
-    alarm_name_prefix = (
-        f"{prefix}-queue-depth"
-        if resource_name == "video-worker"
-        else f"{prefix}-{resource_name}-queue-depth"
-    )
+    alarm_name_prefix = f"{prefix}-{resource_name}-queue-depth"
 
     step_adjustments: list[aws.autoscaling.PolicyStepAdjustmentArgs] = []
     for target_capacity in range(1, bounded_max_size + 1):

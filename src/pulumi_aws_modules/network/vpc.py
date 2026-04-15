@@ -18,15 +18,21 @@ def get_default_network() -> tuple[str, list[str]]:
 
 
 def create_worker_security_group(
-    prefix: str, vpc_id: str, tags: dict[str, str] | None = None
+    *,
+    vpc_id: str,
+    security_group_name: str,
+    security_group_description: str,
+    security_group_resource_name: str,
+    tags: dict[str, str] | None = None,
 ) -> aws.ec2.SecurityGroup:
+    """Create a security group; caller supplies AWS name, description, and Pulumi logical name."""
     resolved_tags = dict(tags or {})
-    resolved_tags.setdefault("Name", f"{prefix}-workers-sg")
+    resolved_tags.setdefault("Name", security_group_name)
 
-    worker_security_group = aws.ec2.SecurityGroup(
-        "worker-security-group",
-        name=f"{prefix}-workers-sg",
-        description="Security group for video processing workers",
+    return aws.ec2.SecurityGroup(
+        security_group_resource_name,
+        name=security_group_name,
+        description=security_group_description,
         vpc_id=vpc_id,
         egress=[
             aws.ec2.SecurityGroupEgressArgs(
@@ -39,4 +45,3 @@ def create_worker_security_group(
         ],
         tags=resolved_tags,
     )
-    return worker_security_group

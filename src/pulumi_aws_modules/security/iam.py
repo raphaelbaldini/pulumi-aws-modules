@@ -3,9 +3,9 @@ from dataclasses import dataclass
 import pulumi
 import pulumi_aws as aws
 
-from .database import DatabaseResources
-from .messaging import MessagingResources
-from .storage import StorageResources
+from pulumi_aws_modules.database import DatabaseResources
+from pulumi_aws_modules.messaging import MessagingResources
+from pulumi_aws_modules.storage import StorageResources
 
 
 @dataclass(frozen=True)
@@ -15,12 +15,21 @@ class IdentityResources:
 
 
 def create_worker_identity(
-    prefix: str,
+    *,
     storage: StorageResources,
     messaging: MessagingResources,
     database: DatabaseResources,
+    role_name: str,
+    instance_profile_name: str,
+    pulumi_resource_prefix: str,
     tags: dict[str, str] | None = None,
 ) -> IdentityResources:
+    """Create an EC2 instance role + profile with SQS, DynamoDB, S3, and SSM read access.
+
+    ``role_name`` / ``instance_profile_name`` are the **AWS** resource names. ``pulumi_resource_prefix``
+    must be unique in the stack; it is used to build Pulumi logical resource names
+    (``{pulumi_resource_prefix}-role``, etc.).
+    """
     assume_policy = aws.iam.get_policy_document(
         statements=[
             aws.iam.GetPolicyDocumentStatementArgs(
@@ -36,10 +45,10 @@ def create_worker_identity(
     )
 
     role = aws.iam.Role(
-        "video-worker-role",
-        name=f"{prefix}-video-worker-role",
+        f"{pulumi_resource_prefix}-role",
+        name=role_name,
         assume_role_policy=assume_policy.json,
-        tags={**(tags or {}), "Name": f"{prefix}-video-worker-role"},
+        tags={**(tags or {}), "Name": role_name},
     )
 
     policy_doc = pulumi.Output.all(
@@ -99,22 +108,22 @@ def create_worker_identity(
     )
 
     aws.iam.RolePolicy(
-        "video-worker-inline-policy",
+        f"{pulumi_resource_prefix}-inline-policy",
         role=role.id,
         policy=policy_doc,
     )
 
     aws.iam.RolePolicyAttachment(
-        "video-worker-ssm-managed-policy",
+        f"{pulumi_resource_prefix}-ssm-managed-policy",
         role=role.name,
         policy_arn="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
     )
 
     instance_profile = aws.iam.InstanceProfile(
-        "video-worker-instance-profile",
-        name=f"{prefix}-video-worker-profile",
+        f"{pulumi_resource_prefix}-instance-profile",
+        name=instance_profile_name,
         role=role.name,
-        tags={**(tags or {}), "Name": f"{prefix}-video-worker-profile"},
+        tags={**(tags or {}), "Name": instance_profile_name},
     )
 
     return IdentityResources(

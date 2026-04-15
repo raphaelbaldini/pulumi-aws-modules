@@ -1,12 +1,13 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, Mapping
 
 import pulumi
 import pulumi_aws as aws
 
-from .database import DatabaseResources
-from .messaging import MessagingResources
-from .storage import StorageResources
+from pulumi_aws_modules.database import DatabaseResources
+from pulumi_aws_modules.messaging import MessagingResources
+from pulumi_aws_modules.storage import StorageResources
 
 
 @dataclass(frozen=True)
@@ -14,8 +15,35 @@ class EventResources:
     metadata_lambda: aws.lambda_.Function
 
 
+@dataclass(frozen=True)
+class MetadataIngestFanoutConfig:
+    """Pulumi logical resource names and IAM sid for raw bucket → ingest queue + Lambda notifications."""
+
+    ingest_queue_policy_pulumi_name: str
+    source_bucket_to_queue_policy_sid: str
+    lambda_invoke_permission_logical_name: str
+    bucket_notification_logical_name: str
+
+
+@dataclass(frozen=True)
+class MetadataWriterLambdaConfig:
+    """Lambda + IAM role wiring; all names and artifact paths come from the caller."""
+
+    lambda_role_logical_name: str
+    iam_role_name: str
+    basic_execution_attachment_logical_name: str
+    inline_policy_logical_name: str
+    function_logical_name: str
+    function_name: str
+    runtime: str
+    handler: str
+    code: pulumi.Input[Any]
+    timeout_seconds: int
+    environment: Mapping[str, pulumi.Input[str]] = field(default_factory=dict)
+
+
 def _allow_s3_to_send_to_queue(
-    resource_name: str, queue: aws.sqs.Queue, bucket_arn: pulumi.Input[str], sid: str
+    queue_policy_pulumi_name: str, queue: aws.sqs.Queue, bucket_arn: pulumi.Input[str], sid: str
 ) -> None:
     policy = pulumi.Output.all(queue.arn, bucket_arn).apply(
         lambda args: json.dumps(
@@ -34,20 +62,23 @@ def _allow_s3_to_send_to_queue(
             }
         )
     )
-    aws.sqs.QueuePolicy(f"{resource_name}-policy", queue_url=queue.id, policy=policy)
+    aws.sqs.QueuePolicy(queue_policy_pulumi_name, queue_url=queue.id, policy=policy)
 
 
 def create_events(
-    prefix: str,
     storage: StorageResources,
     messaging: MessagingResources,
     database: DatabaseResources,
+    *,
+    fanout: MetadataIngestFanoutConfig,
+    metadata_lambda: MetadataWriterLambdaConfig,
 ) -> EventResources:
+    """Wire S3 object-created events to SQS and a metadata Lambda; caller supplies all names and code."""
     _allow_s3_to_send_to_queue(
-        resource_name="ingest-queue",
+        fanout.ingest_queue_policy_pulumi_name,
         queue=messaging.ingest_queue,
         bucket_arn=storage.raw_video_bucket.arn,
-        sid="AllowRawBucketToSendIngest",
+        sid=fanout.source_bucket_to_queue_policy_sid,
     )
 
     lambda_assume_policy = aws.iam.get_policy_document(
@@ -64,13 +95,13 @@ def create_events(
     )
 
     metadata_lambda_role = aws.iam.Role(
-        "metadata-writer-lambda-role",
-        name=f"{prefix}-metadata-lambda-role",
+        metadata_lambda.lambda_role_logical_name,
+        name=metadata_lambda.iam_role_name,
         assume_role_policy=lambda_assume_policy.json,
     )
 
     aws.iam.RolePolicyAttachment(
-        "metadata-lambda-basic-exec",
+        metadata_lambda.basic_execution_attachment_logical_name,
         role=metadata_lambda_role.name,
         policy_arn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
     )
@@ -91,38 +122,34 @@ def create_events(
     )
 
     aws.iam.RolePolicy(
-        "metadata-lambda-policy",
+        metadata_lambda.inline_policy_logical_name,
         role=metadata_lambda_role.id,
         policy=metadata_policy,
     )
 
-    metadata_lambda = aws.lambda_.Function(
-        "metadata-writer",
-        name=f"{prefix}-metadata-writer",
-        runtime="python3.11",
+    fn = aws.lambda_.Function(
+        metadata_lambda.function_logical_name,
+        name=metadata_lambda.function_name,
+        runtime=metadata_lambda.runtime,
         role=metadata_lambda_role.arn,
-        handler="metadata_handler.handler",
-        timeout=30,
-        code=pulumi.AssetArchive(
-            {
-                ".": pulumi.FileArchive("./lambda_handlers/metadata_writer"),
-            }
-        ),
+        handler=metadata_lambda.handler,
+        timeout=metadata_lambda.timeout_seconds,
+        code=metadata_lambda.code,
         environment=aws.lambda_.FunctionEnvironmentArgs(
-            variables={"TABLE_NAME": database.ingest_metadata_table.name}
+            variables=dict(metadata_lambda.environment),
         ),
     )
 
     invoke_permission = aws.lambda_.Permission(
-        "raw-bucket-invoke-metadata-lambda",
+        fanout.lambda_invoke_permission_logical_name,
         action="lambda:InvokeFunction",
-        function=metadata_lambda.name,
+        function=fn.name,
         principal="s3.amazonaws.com",
         source_arn=storage.raw_video_bucket.arn,
     )
 
     aws.s3.BucketNotification(
-        "raw-bucket-events",
+        fanout.bucket_notification_logical_name,
         bucket=storage.raw_video_bucket.id,
         queues=[
             aws.s3.BucketNotificationQueueArgs(
@@ -132,11 +159,11 @@ def create_events(
         ],
         lambda_functions=[
             aws.s3.BucketNotificationLambdaFunctionArgs(
-                lambda_function_arn=metadata_lambda.arn,
+                lambda_function_arn=fn.arn,
                 events=["s3:ObjectCreated:*"],
             )
         ],
         opts=pulumi.ResourceOptions(depends_on=[invoke_permission]),
     )
 
-    return EventResources(metadata_lambda=metadata_lambda)
+    return EventResources(metadata_lambda=fn)

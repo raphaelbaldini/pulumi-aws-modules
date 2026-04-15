@@ -1,3 +1,9 @@
+"""DynamoDB table helpers.
+
+For **Aurora PostgreSQL** use :mod:`pulumi_aws_modules.database` (RDS helpers) or
+:mod:`pulumi_aws_modules.database.rds` — RDS is a different service than DynamoDB.
+"""
+
 from dataclasses import dataclass
 from typing import Optional
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 import pulumi_aws as aws
 
@@ -76,16 +76,33 @@ def create_secure_bucket(
     enable_versioning: bool = True,
     lifecycle: dict[str, Any] | None = None,
     tags: dict[str, str] | None = None,
+    exact_bucket_name: Optional[str] = None,
+    bucket_key_enabled: bool = True,
 ) -> aws.s3.BucketV2:
-    resolved_tags = dict(tags or {})
-    resolved_tags.setdefault("Name", f"{prefix}-{name}")
+    """
+    Create a private S3 bucket with default encryption and public access blocked.
 
-    bucket = aws.s3.BucketV2(
-        name,
-        bucket_prefix=f"{prefix}-{name}-",
-        force_destroy=False,
-        tags=resolved_tags,
-    )
+    By default the bucket name is ``{prefix}-{name}-<random>`` (``bucket_prefix``).
+    Pass ``exact_bucket_name`` to adopt or manage an existing bucket with a fixed
+    global name (for example when using ``pulumi import``).
+    """
+    resolved_tags = dict(tags or {})
+    if exact_bucket_name:
+        resolved_tags.setdefault("Name", exact_bucket_name)
+        bucket = aws.s3.BucketV2(
+            name,
+            bucket=exact_bucket_name,
+            force_destroy=False,
+            tags=resolved_tags,
+        )
+    else:
+        resolved_tags.setdefault("Name", f"{prefix}-{name}")
+        bucket = aws.s3.BucketV2(
+            name,
+            bucket_prefix=f"{prefix}-{name}-",
+            force_destroy=False,
+            tags=resolved_tags,
+        )
 
     aws.s3.BucketPublicAccessBlock(
         f"{name}-public-access",
@@ -96,16 +113,17 @@ def create_secure_bucket(
         restrict_public_buckets=True,
     )
 
+    enc_rule = aws.s3.BucketServerSideEncryptionConfigurationV2RuleArgs(
+        apply_server_side_encryption_by_default=aws.s3.BucketServerSideEncryptionConfigurationV2RuleApplyServerSideEncryptionByDefaultArgs(
+            sse_algorithm="AES256"
+        ),
+        bucket_key_enabled=bucket_key_enabled,
+    )
+
     aws.s3.BucketServerSideEncryptionConfigurationV2(
         f"{name}-encryption",
         bucket=bucket.id,
-        rules=[
-            aws.s3.BucketServerSideEncryptionConfigurationV2RuleArgs(
-                apply_server_side_encryption_by_default=aws.s3.BucketServerSideEncryptionConfigurationV2RuleApplyServerSideEncryptionByDefaultArgs(
-                    sse_algorithm="AES256"
-                )
-            )
-        ],
+        rules=[enc_rule],
     )
 
     aws.s3.BucketVersioningV2(
